@@ -8,7 +8,7 @@ import qs.config
 StyledRect {
     id: root
 
-    readonly property color colour: Colours.palette.m3tertiary
+    readonly property color colour: Colours.palette.m3pink
     readonly property int padding: Config.bar.clock.background ? Appearance.padding.normal : Appearance.padding.small
 
     implicitWidth: Config.bar.sizes.innerWidth
