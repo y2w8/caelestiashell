@@ -25,7 +25,7 @@ Slider {
             y: root.handle.y
             implicitHeight: parent.height - y
 
-            color: Colours.palette.m3secondary
+            color: Colours.palette.m3primary
             radius: parent.radius
         }
     }
@@ -50,7 +50,7 @@ Slider {
 
             anchors.fill: parent
 
-            color: Colours.palette.m3inverseSurface
+            color: Colours.palette.m3flamingo
             radius: Appearance.rounding.full
 
             MouseArea {
@@ -75,7 +75,7 @@ Slider {
                 }
 
                 text: root.icon
-                color: Colours.palette.m3inverseOnSurface
+                color: Colours.palette.m3background
                 anchors.centerIn: parent
 
                 onMovingChanged: anim.restart()
