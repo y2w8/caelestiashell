@@ -157,6 +157,8 @@ Singleton {
         readonly property color m3tertiaryFixedDim: root.layer(root.palette.m3tertiaryFixedDim)
         readonly property color m3onTertiaryFixed: root.layer(root.palette.m3onTertiaryFixed)
         readonly property color m3onTertiaryFixedVariant: root.layer(root.palette.m3onTertiaryFixedVariant)
+
+        readonly property color m3pink: root.layer(root.palette.m3pink)
     }
 
     component M3Palette: QtObject {
@@ -218,6 +220,9 @@ Singleton {
         property color m3tertiaryFixedDim: "#f0bc95"
         property color m3onTertiaryFixed: "#2f1500"
         property color m3onTertiaryFixedVariant: "#623f21"
+
+        property color m3pink: "#ffffff"
+
         property color term0: "#353434"
         property color term1: "#ff4c8a"
         property color term2: "#ffbbb7"
