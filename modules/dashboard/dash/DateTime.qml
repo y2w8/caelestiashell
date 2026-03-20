@@ -23,7 +23,7 @@ Item {
             Layout.bottomMargin: -(font.pointSize * 0.4)
             Layout.alignment: Qt.AlignHCenter
             text: Time.hourStr
-            color: Colours.palette.m3secondary
+            color: Colours.palette.m3pink
             font.pointSize: Appearance.font.size.extraLarge
             font.family: Appearance.font.family.clock
             font.weight: 600
@@ -32,7 +32,7 @@ Item {
         StyledText {
             Layout.alignment: Qt.AlignHCenter
             text: "•••"
-            color: Colours.palette.m3primary
+            color: Colours.palette.m3pink
             font.pointSize: Appearance.font.size.extraLarge * 0.9
             font.family: Appearance.font.family.clock
         }
@@ -41,7 +41,7 @@ Item {
             Layout.topMargin: -(font.pointSize * 0.4)
             Layout.alignment: Qt.AlignHCenter
             text: Time.minuteStr
-            color: Colours.palette.m3secondary
+            color: Colours.palette.m3pink
             font.pointSize: Appearance.font.size.extraLarge
             font.family: Appearance.font.family.clock
             font.weight: 600

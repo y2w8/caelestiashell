@@ -29,7 +29,7 @@ ColumnLayout {
         StyledText {
             Layout.alignment: Qt.AlignVCenter
             text: Time.hourStr
-            color: Colours.palette.m3secondary
+            color: Colours.palette.m3pink
             font.pointSize: Math.floor(Appearance.font.size.extraLarge * 3 * root.centerScale)
             font.family: Appearance.font.family.clock
             font.bold: true
@@ -38,7 +38,7 @@ ColumnLayout {
         StyledText {
             Layout.alignment: Qt.AlignVCenter
             text: ":"
-            color: Colours.palette.m3primary
+            color: Colours.palette.m3pink
             font.pointSize: Math.floor(Appearance.font.size.extraLarge * 3 * root.centerScale)
             font.family: Appearance.font.family.clock
             font.bold: true
@@ -47,7 +47,7 @@ ColumnLayout {
         StyledText {
             Layout.alignment: Qt.AlignVCenter
             text: Time.minuteStr
-            color: Colours.palette.m3secondary
+            color: Colours.palette.m3pink
             font.pointSize: Math.floor(Appearance.font.size.extraLarge * 3 * root.centerScale)
             font.family: Appearance.font.family.clock
             font.bold: true
@@ -76,7 +76,7 @@ ColumnLayout {
         Layout.topMargin: -Appearance.padding.large * 2
 
         text: Time.format("dddd, d MMMM yyyy")
-        color: Colours.palette.m3tertiary
+        color: Colours.palette.m3secondary
         font.pointSize: Math.floor(Appearance.font.size.extraLarge * root.centerScale)
         font.family: Appearance.font.family.mono
         font.bold: true

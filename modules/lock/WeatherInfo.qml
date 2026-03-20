@@ -28,7 +28,7 @@ ColumnLayout {
 
         sourceComponent: StyledText {
             text: qsTr("Weather")
-            color: Colours.palette.m3primary
+            color: Colours.palette.m3tertiary
             font.pointSize: Appearance.font.size.extraLarge
             font.weight: 500
         }
@@ -41,7 +41,7 @@ ColumnLayout {
         MaterialIcon {
             animate: true
             text: Weather.icon
-            color: Colours.palette.m3secondary
+            color: Colours.palette.m3yellow
             font.pointSize: Appearance.font.size.extraLarge * 2.5
         }
 
@@ -53,7 +53,7 @@ ColumnLayout {
 
                 animate: true
                 text: Weather.description
-                color: Colours.palette.m3secondary
+                color: Colours.palette.m3yellow
                 font.pointSize: Appearance.font.size.large
                 font.weight: 500
                 elide: Text.ElideRight

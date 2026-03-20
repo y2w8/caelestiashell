@@ -93,7 +93,7 @@ Item {
                     secondaryLabel: qsTr("Temp")
                     usage: SystemUsage.cpuPerc
                     temperature: SystemUsage.cpuTemp
-                    accentColor: Colours.palette.m3primary
+                    accentColor: Colours.palette.m3blue
                 }
 
                 HeroCard {
@@ -130,12 +130,12 @@ Item {
                         const totalFmt = SystemUsage.formatKib(SystemUsage.memTotal);
                         return `${usedFmt.value.toFixed(1)} / ${Math.floor(totalFmt.value)} ${totalFmt.unit}`;
                     }
-                    accentColor: Colours.palette.m3tertiary
+                    accentColor: Colours.palette.m3error
                     visible: Config.dashboard.performance.showMemory
                 }
 
-                StorageGaugeCard {
-                    Layout.minimumWidth: 250
+                StorageDiskCard {
+                    Layout.minimumWidth: 400
                     Layout.preferredHeight: 220
                     Layout.fillWidth: !Config.dashboard.performance.showNetwork
                     visible: Config.dashboard.performance.showStorage
@@ -149,132 +149,9 @@ Item {
                 }
             }
         }
-
-        BatteryTank {
-            Layout.preferredWidth: 120
-            Layout.preferredHeight: mainColumn.implicitHeight
-            visible: UPower.displayDevice.isLaptopBattery && Config.dashboard.performance.showBattery
-        }
     }
 
-    component BatteryTank: StyledClippingRect {
-        id: batteryTank
-
-        property real percentage: UPower.displayDevice.percentage
-        property bool isCharging: UPower.displayDevice.state === UPowerDeviceState.Charging
-        property color accentColor: Colours.palette.m3primary
-        property real animatedPercentage: 0
-
-        color: Colours.tPalette.m3surfaceContainer
-        radius: Appearance.rounding.large
-        Component.onCompleted: animatedPercentage = percentage
-        onPercentageChanged: animatedPercentage = percentage
-
-        // Background Fill
-        StyledRect {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: parent.height * batteryTank.animatedPercentage
-            color: Qt.alpha(batteryTank.accentColor, 0.15)
-        }
-
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Appearance.padding.large
-            spacing: Appearance.spacing.small
-
-            // Header Section
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Appearance.spacing.small
-
-                MaterialIcon {
-                    text: {
-                        if (!UPower.displayDevice.isLaptopBattery) {
-                            if (PowerProfiles.profile === PowerProfile.PowerSaver)
-                                return "energy_savings_leaf";
-
-                            if (PowerProfiles.profile === PowerProfile.Performance)
-                                return "rocket_launch";
-
-                            return "balance";
-                        }
-                        if (UPower.displayDevice.state === UPowerDeviceState.FullyCharged)
-                            return "battery_full";
-
-                        const perc = UPower.displayDevice.percentage;
-                        const charging = [UPowerDeviceState.Charging, UPowerDeviceState.PendingCharge].includes(UPower.displayDevice.state);
-                        if (perc >= 0.99)
-                            return "battery_full";
-
-                        let level = Math.floor(perc * 7);
-                        if (charging && (level === 4 || level === 1))
-                            level--;
-
-                        return charging ? `battery_charging_${(level + 3) * 10}` : `battery_${level}_bar`;
-                    }
-                    font.pointSize: Appearance.font.size.large
-                    color: batteryTank.accentColor
-                }
-
-                StyledText {
-                    Layout.fillWidth: true
-                    text: qsTr("Battery")
-                    font.pointSize: Appearance.font.size.normal
-                    color: Colours.palette.m3onSurface
-                }
-            }
-
-            Item {
-                Layout.fillHeight: true
-            }
-
-            // Bottom Info Section
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: -4
-
-                StyledText {
-                    Layout.alignment: Qt.AlignRight
-                    text: `${Math.round(batteryTank.percentage * 100)}%`
-                    font.pointSize: Appearance.font.size.extraLarge
-                    font.weight: Font.Medium
-                    color: batteryTank.accentColor
-                }
-
-                StyledText {
-                    Layout.alignment: Qt.AlignRight
-                    text: {
-                        if (UPower.displayDevice.state === UPowerDeviceState.FullyCharged)
-                            return qsTr("Full");
-
-                        if (batteryTank.isCharging)
-                            return qsTr("Charging");
-
-                        const s = UPower.displayDevice.timeToEmpty;
-                        if (s === 0)
-                            return qsTr("...");
-
-                        const hr = Math.floor(s / 3600);
-                        const min = Math.floor((s % 3600) / 60);
-                        if (hr > 0)
-                            return `${hr}h ${min}m`;
-
-                        return `${min}m`;
-                    }
-                    font.pointSize: Appearance.font.size.smaller
-                    color: Colours.palette.m3onSurfaceVariant
-                }
-            }
-        }
-
-        Behavior on animatedPercentage {
-            Anim {
-                duration: Appearance.anim.durations.large
-            }
-        }
-    }
+    // ── Shared sub-components ────────────────────────────────────────────────
 
     component CardHeader: RowLayout {
         property string icon
@@ -318,6 +195,37 @@ Item {
             anchors.bottom: parent.bottom
             width: parent.width * progressBar.animatedValue
             color: progressBar.fgColor
+            radius: Appearance.rounding.full
+        }
+
+        Behavior on animatedValue {
+            Anim {
+                duration: Appearance.anim.durations.large
+            }
+        }
+    }
+
+    // Disk progress bar — identical to ProgressBar but named separately
+    // to avoid any future conflicts if ProgressBar gains new properties
+    component DiskProgressBar: StyledRect {
+        id: diskProgressBar
+
+        property real value: 0
+        property color fgColor: Colours.palette.m3secondary
+        property color bgColor: Colours.layer(Colours.palette.m3surfaceContainerHigh, 2)
+        property real animatedValue: 0
+
+        color: bgColor
+        radius: Appearance.rounding.full
+        Component.onCompleted: animatedValue = value
+        onValueChanged: animatedValue = value
+
+        StyledRect {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: parent.width * diskProgressBar.animatedValue
+            color: diskProgressBar.fgColor
             radius: Appearance.rounding.full
         }
 
@@ -522,129 +430,193 @@ Item {
         }
     }
 
-    component StorageGaugeCard: StyledRect {
-        id: storageGaugeCard
+    // ── New storage card: real mount points via df, 3 per page ───────────────
+    component StorageDiskCard: StyledRect {
+        id: storageDiskCard
 
-        property int currentDiskIndex: 0
-        readonly property var currentDisk: SystemUsage.disks.length > 0 ? SystemUsage.disks[currentDiskIndex] : null
-        property int diskCount: 0
-        readonly property real arcStartAngle: 0.75 * Math.PI
-        readonly property real arcSweep: 1.5 * Math.PI
-        property real animatedPercentage: 0
+        property int pageIndex: 0
         property color accentColor: Colours.palette.m3secondary
+
+        readonly property var pageDiskList: {
+            const all = SystemUsage.mountedDisks;
+            if (!all || all.length === 0)
+                return [];
+            return all.slice(pageIndex * 3, pageIndex * 3 + 3);
+        }
+
+        readonly property int totalPages: Math.max(1, Math.ceil(SystemUsage.mountedDisks.length / 3))
+
+        // Header title: mount of first entry on this page, e.g. "/"
+        readonly property string cardTitle: pageDiskList.length > 0 ? pageDiskList[0].mount : qsTr("Storage")
+
+        // Top-right: usage % of first entry on this page
+        readonly property string topPerc: pageDiskList.length > 0 ? `${Math.round(pageDiskList[0].perc * 100)}%` : "—"
 
         color: Colours.tPalette.m3surfaceContainer
         radius: Appearance.rounding.large
         clip: true
-        Component.onCompleted: {
-            diskCount = SystemUsage.disks.length;
-            if (currentDisk)
-                animatedPercentage = currentDisk.perc;
-        }
-        onCurrentDiskChanged: {
-            if (currentDisk)
-                animatedPercentage = currentDisk.perc;
-        }
-
-        // Update diskCount and animatedPercentage when disks data changes
-        Connections {
-            function onDisksChanged() {
-                if (SystemUsage.disks.length !== storageGaugeCard.diskCount)
-                    storageGaugeCard.diskCount = SystemUsage.disks.length;
-
-                // Update animated percentage when disk data refreshes
-                if (storageGaugeCard.currentDisk)
-                    storageGaugeCard.animatedPercentage = storageGaugeCard.currentDisk.perc;
-            }
-
-            target: SystemUsage
-        }
 
         MouseArea {
             anchors.fill: parent
             onWheel: wheel => {
-                if (wheel.angleDelta.y > 0)
-                    storageGaugeCard.currentDiskIndex = (storageGaugeCard.currentDiskIndex - 1 + storageGaugeCard.diskCount) % storageGaugeCard.diskCount;
-                else if (wheel.angleDelta.y < 0)
-                    storageGaugeCard.currentDiskIndex = (storageGaugeCard.currentDiskIndex + 1) % storageGaugeCard.diskCount;
+                if (wheel.angleDelta.y < 0)
+                    storageDiskCard.pageIndex = (storageDiskCard.pageIndex + 1) % storageDiskCard.totalPages;
+                else
+                    storageDiskCard.pageIndex = (storageDiskCard.pageIndex - 1 + storageDiskCard.totalPages) % storageDiskCard.totalPages;
             }
         }
 
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: Appearance.padding.large
-            spacing: Appearance.spacing.smaller
+            spacing: Appearance.spacing.small
 
-            CardHeader {
-                icon: "hard_disk"
-                title: {
-                    const base = qsTr("Storage");
-                    if (!storageGaugeCard.currentDisk)
-                        return base;
+            // Header row
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Appearance.spacing.small
 
-                    return `${base} - ${storageGaugeCard.currentDisk.mount}`;
+                MaterialIcon {
+                    text: "hard_disk"
+                    fill: 1
+                    color: storageDiskCard.accentColor
+                    font.pointSize: Appearance.spacing.large
                 }
-                accentColor: storageGaugeCard.accentColor
 
-                // Scroll hint icon
+                // Shows first mount on this page e.g. "/" or "/home"
+                StyledText {
+                    Layout.fillWidth: true
+                    text: "nvme0n1"
+                    font.pointSize: Appearance.font.size.normal
+                    elide: Text.ElideRight
+                }
+
+                // Scroll hint — only when more than one page
                 MaterialIcon {
                     text: "unfold_more"
                     color: Colours.palette.m3onSurfaceVariant
                     font.pointSize: Appearance.font.size.normal
-                    visible: storageGaugeCard.diskCount > 1
+                    visible: storageDiskCard.totalPages > 1
                     opacity: 0.7
-                    ToolTip.visible: hintHover.hovered
-                    ToolTip.text: qsTr("Scroll to switch disks")
+                    ToolTip.visible: scrollHint.hovered
+                    ToolTip.text: qsTr("Scroll to see more")
                     ToolTip.delay: 500
 
                     HoverHandler {
-                        id: hintHover
+                        id: scrollHint
+                    }
+                }
+
+                // Usage % of first mount on this page
+                StyledText {
+                    text: storageDiskCard.topPerc
+                    font.pointSize: Appearance.font.size.normal
+                    font.weight: Font.Medium
+                    color: storageDiskCard.accentColor
+                }
+            }
+
+            // Up to 3 disk rows per page
+            Repeater {
+                model: storageDiskCard.pageDiskList
+
+                delegate: RowLayout {
+                    required property var modelData
+                    required property int index
+
+                    Layout.fillWidth: true
+                    spacing: Appearance.spacing.normal
+
+                    // Left: label row + progress bar
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Appearance.spacing.small
+
+                            StyledText {
+                                Layout.fillWidth: true
+                                text: modelData.mount
+                                font.pointSize: Appearance.font.size.small
+                                font.weight: Font.Medium
+                                color: [
+                                    Colours.palette.m3blue,
+                                    Colours.palette.m3tertiary,
+                                    Colours.palette.m3pink
+                                ][index % 3]
+                                elide: Text.ElideRight
+                            }
+
+                            StyledText {
+                                text: `${Math.round(modelData.perc * 100)}%`
+                                font.pointSize: Appearance.font.size.small
+                                font.weight: Font.Medium
+                                color: [
+                                    Colours.palette.m3blue,
+                                    Colours.palette.m3tertiary,
+                                    Colours.palette.m3pink
+                                ][index % 3]
+                            }
+                        }
+
+                      DiskProgressBar {
+                          Layout.fillWidth: true
+                          height: 8
+                          value: modelData.perc
+                          fgColor: [
+                              Colours.palette.m3blue,
+                              Colours.palette.m3tertiary,
+                              Colours.palette.m3pink
+                          ][index % 3]
+                      }
+                    }
+
+                    // Right: used / total
+                    ColumnLayout {
+                        spacing: 2
+                        Layout.minimumWidth: 90
+
+                        StyledText {
+                            Layout.alignment: Qt.AlignRight
+                            text: {
+                                const fmt = SystemUsage.formatKib(modelData.used);
+                                return `${fmt.value.toFixed(1)} ${fmt.unit}`;
+                            }
+                            font.pointSize: Appearance.font.size.smaller
+                            font.weight: Font.Medium
+                            color: [
+                                Colours.palette.m3blue,
+                                Colours.palette.m3tertiary,
+                                Colours.palette.m3pink
+                            ][index % 3]
+                        }
+
+                        StyledText {
+                            Layout.alignment: Qt.AlignRight
+                            text: {
+                                const fmt = SystemUsage.formatKib(modelData.total);
+                                return `/ ${Math.floor(fmt.value)} ${fmt.unit}`;
+                            }
+                            font.pointSize: Appearance.font.size.smaller
+                            color: Colours.palette.m3onSurfaceVariant
+                        }
                     }
                 }
             }
 
-            Item {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-
-                ArcGauge {
-                    anchors.centerIn: parent
-                    width: Math.min(parent.width, parent.height)
-                    height: width
-                    percentage: storageGaugeCard.animatedPercentage
-                    accentColor: storageGaugeCard.accentColor
-                    trackColor: Colours.layer(Colours.palette.m3surfaceContainerHigh, 2)
-                    startAngle: storageGaugeCard.arcStartAngle
-                    sweepAngle: storageGaugeCard.arcSweep
-                }
-
-                StyledText {
-                    anchors.centerIn: parent
-                    text: storageGaugeCard.currentDisk ? `${Math.round(storageGaugeCard.currentDisk.perc * 100)}%` : "—"
-                    font.pointSize: Appearance.font.size.extraLarge
-                    font.weight: Font.Medium
-                    color: storageGaugeCard.accentColor
-                }
-            }
-
+            // Empty state — shown while df hasn't returned yet
             StyledText {
                 Layout.alignment: Qt.AlignHCenter
-                text: {
-                    if (!storageGaugeCard.currentDisk)
-                        return "—";
-
-                    const usedFmt = SystemUsage.formatKib(storageGaugeCard.currentDisk.used);
-                    const totalFmt = SystemUsage.formatKib(storageGaugeCard.currentDisk.total);
-                    return `${usedFmt.value.toFixed(1)} / ${Math.floor(totalFmt.value)} ${totalFmt.unit}`;
-                }
-                font.pointSize: Appearance.font.size.smaller
+                text: qsTr("No disks found")
+                font.pointSize: Appearance.font.size.small
                 color: Colours.palette.m3onSurfaceVariant
+                visible: SystemUsage.mountedDisks.length === 0
             }
-        }
 
-        Behavior on animatedPercentage {
-            Anim {
-                duration: Appearance.anim.durations.large
+            Item {
+                Layout.fillHeight: true
             }
         }
     }
@@ -720,7 +692,6 @@ Item {
                     }
                 }
 
-                // "No data" placeholder
                 StyledText {
                     anchors.centerIn: parent
                     text: qsTr("Collecting data...")
@@ -731,7 +702,6 @@ Item {
                 }
             }
 
-            // Download row
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Appearance.spacing.normal
@@ -763,7 +733,6 @@ Item {
                 }
             }
 
-            // Upload row
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Appearance.spacing.normal
@@ -795,7 +764,6 @@ Item {
                 }
             }
 
-            // Session totals
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Appearance.spacing.normal

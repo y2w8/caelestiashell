@@ -125,7 +125,7 @@ Row {
 
                 source: SysInfo.osLogo
                 implicitSize: Math.floor(Appearance.font.size.normal * 1.34)
-                colour: Colours.palette.m3primary
+                colour: Colours.palette.m3blue
             }
 
             StyledText {

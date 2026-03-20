@@ -31,7 +31,7 @@ Item {
                     text: Weather.city || qsTr("Loading...")
                     font.pointSize: Appearance.font.size.extraLarge
                     font.weight: 600
-                    color: Colours.palette.m3onSurface
+                    color: Colours.palette.m3primary
                 }
 
                 StyledText {
@@ -81,7 +81,7 @@ Item {
                     Layout.alignment: Qt.AlignVCenter
                     text: Weather.icon
                     font.pointSize: Appearance.font.size.extraLarge * 3
-                    color: Colours.palette.m3secondary
+                    color: Colours.palette.m3yellow
                     animate: true
                 }
 
@@ -93,7 +93,7 @@ Item {
                         text: Weather.temp
                         font.pointSize: Appearance.font.size.extraLarge * 2
                         font.weight: 500
-                        color: Colours.palette.m3primary
+                        color: Colours.palette.m3yellow
                     }
 
                     StyledText {
@@ -114,19 +114,19 @@ Item {
                 icon: "water_drop"
                 label: "Humidity"
                 value: Weather.humidity + "%"
-                colour: Colours.palette.m3secondary
+                colour: Colours.palette.m3sapphire
             }
             DetailCard {
                 icon: "thermostat"
                 label: "Feels Like"
                 value: Weather.feelsLike
-                colour: Colours.palette.m3primary
+                colour: Colours.palette.m3tertiary
             }
             DetailCard {
                 icon: "air"
                 label: "Wind"
                 value: Weather.windSpeed ? Weather.windSpeed + " km/h" : "--"
-                colour: Colours.palette.m3tertiary
+                colour: Colours.palette.m3teal
             }
         }
 
@@ -188,14 +188,14 @@ Item {
                             Layout.alignment: Qt.AlignHCenter
                             text: forecastItem.modelData.icon
                             font.pointSize: Appearance.font.size.extraLarge
-                            color: Colours.palette.m3secondary
+                            color: Colours.palette.m3yellow
                         }
 
                         StyledText {
                             Layout.alignment: Qt.AlignHCenter
                             text: Config.services.useFahrenheit ? forecastItem.modelData.maxTempF + "°" + " / " + forecastItem.modelData.minTempF + "°" : forecastItem.modelData.maxTempC + "°" + " / " + forecastItem.modelData.minTempC + "°"
                             font.weight: 600
-                            color: Colours.palette.m3tertiary
+                            color: Colours.palette.m3yellow
                         }
                     }
                 }
