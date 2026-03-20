@@ -20,13 +20,13 @@ Row {
     Resource {
         icon: "memory"
         value: SystemUsage.cpuPerc
-        colour: Colours.palette.m3primary
+        colour: Colours.palette.m3blue
     }
 
     Resource {
         icon: "memory_alt"
         value: SystemUsage.memPerc
-        colour: Colours.palette.m3secondary
+        colour: Colours.palette.m3error
     }
 
     Resource {

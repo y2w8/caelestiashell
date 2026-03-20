@@ -187,6 +187,10 @@ Singleton {
         readonly property color m3base: root.layer(root.palette.m3base)
         readonly property color m3text: root.layer(root.palette.m3text)
         readonly property color m3flamingo: root.layer(root.palette.m3flamingo)
+        readonly property color m3blue: root.layer(root.palette.m3blue)
+        readonly property color m3yellow: root.layer(root.palette.m3blue)
+        readonly property color m3sapphire: root.layer(root.palette.m3blue)
+        readonly property color m3teal: root.layer(root.palette.m3blue)
     }
 
     component M3Palette: QtObject {
@@ -253,6 +257,10 @@ Singleton {
         property color m3base: "#ffffff"
         property color m3text: "#ffffff"
         property color m3flamingo: "#ffffff"
+        property color m3blue: "#ffffff"
+        property color m3yellow: "#ffffff"
+        property color m3sapphire: "#ffffff"
+        property color m3teal: "#ffffff"
 
         property color term0: "#353434"
         property color term1: "#ff4c8a"

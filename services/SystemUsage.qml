@@ -25,7 +25,7 @@ Singleton {
     property real memTotal
     readonly property real memPerc: memTotal > 0 ? memUsed / memTotal : 0
 
-    // Storage properties (aggregated)
+    // Storage properties (aggregated from lsblk-based disks)
     readonly property real storagePerc: {
         let totalUsed = 0;
         let totalSize = 0;
@@ -36,8 +36,11 @@ Singleton {
         return totalSize > 0 ? totalUsed / totalSize : 0;
     }
 
-    // Individual disks: Array of { mount, used, total, free, perc }
+    // lsblk-based disks (existing, untouched)
     property var disks: []
+
+    // df-based mount points for StorageDiskCard
+    property var mountedDisks: []
 
     property real lastCpuIdle
     property real lastCpuTotal
@@ -87,6 +90,7 @@ Singleton {
             stat.reload();
             meminfo.reload();
             storage.running = true;
+            mountedStorage.running = true;
             gpuUsage.running = true;
             sensors.running = true;
         }
@@ -139,15 +143,11 @@ Singleton {
     Process {
         id: storage
 
-        // Get physical disks with aggregated usage from their partitions
-        // -J triggers JSON output. -b triggers bytes.
-        command: ["lsblk", "-J", "-b", "-o", "NAME,SIZE,TYPE,FSUSED,FSSIZE,MOUNTPOINT"]
-
+        command: ["lsblk", "-b", "-o", "NAME,SIZE,TYPE,FSUSED,FSSIZE", "-P"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const data = JSON.parse(text);
-                const diskList = [];
-                const seenDevices = new Set();
+                const diskMap = {};
+                const lines = text.trim().split("\n");
 
                 // Helper to recursively sum usage from children (partitions, crypt, lvm)
                 const aggregateUsage = dev => {
@@ -155,12 +155,11 @@ Singleton {
                     let size = 0;
                     let isRoot = dev.mountpoint === "/" || (dev.mountpoints && dev.mountpoints.includes("/"));
 
-                    if (!seenDevices.has(dev.name)) {
-                        // lsblk returns null for empty/unformatted partitions, which parses to 0 here
-                        used = parseInt(dev.fsused) || 0;
-                        size = parseInt(dev.fssize) || 0;
-                        seenDevices.add(dev.name);
-                    }
+                    const nameMatch = line.match(/NAME="([^"]+)"/);
+                    const sizeMatch = line.match(/SIZE="([^"]+)"/);
+                    const typeMatch = line.match(/TYPE="([^"]+)"/);
+                    const fsusedMatch = line.match(/FSUSED="([^"]*)"/);
+                    const fssizeMatch = line.match(/FSSIZE="([^"]*)"/);
 
                     if (dev.children) {
                         for (const child of dev.children) {
@@ -183,34 +182,110 @@ Singleton {
                     if (dev.type === "disk" && !dev.name.startsWith("zram")) {
                         const stats = aggregateUsage(dev);
 
-                        if (stats.size === 0) {
+                    if (type === "disk") {
+                        if (name.startsWith("zram"))
                             continue;
+
+                        if (!diskMap[name]) {
+                            diskMap[name] = {
+                                name: name,
+                                totalSize: size,
+                                used: 0,
+                                fsTotal: 0
+                            };
                         }
+                    } else if (type === "part") {
+                        let parentDisk = name.replace(/p?\d+$/, "");
+                        if (name.match(/nvme\d+n\d+p\d+/))
+                            parentDisk = name.replace(/p\d+$/, "");
 
-                        const total = stats.size;
-                        const used = stats.used;
-
-                        diskList.push({
-                            mount: dev.name,
-                            used: used / 1024      // KiB
-                            ,
-                            total: total / 1024    // KiB
-                            ,
-                            free: (total - used) / 1024,
-                            perc: total > 0 ? used / total : 0,
-                            hasRoot: stats.isRoot
-                        });
+                        if (diskMap[parentDisk]) {
+                            diskMap[parentDisk].used += fsused;
+                            diskMap[parentDisk].fsTotal += fssize;
+                        }
                     }
                 }
 
-                // Sort by putting the disk with root first, then sort the rest alphabetically
-                root.disks = diskList.sort((a, b) => {
-                    if (a.hasRoot && !b.hasRoot)
-                        return -1;
-                    if (!a.hasRoot && b.hasRoot)
-                        return 1;
-                    return a.mount.localeCompare(b.mount);
-                });
+                const diskList = [];
+                for (const diskName of Object.keys(diskMap).sort()) {
+                    const disk = diskMap[diskName];
+                    const total = disk.fsTotal > 0 ? disk.fsTotal : disk.totalSize;
+                    const used = disk.used;
+                    const perc = total > 0 ? used / total : 0;
+
+                    diskList.push({
+                        mount: disk.name,
+                        used: used / 1024,
+                        total: total / 1024,
+                        free: (total - used) / 1024,
+                        perc: perc
+                    });
+                }
+
+                root.disks = diskList;
+            }
+        }
+    }
+
+    // Mount-point based storage for StorageDiskCard
+    // Uses df to get real mount points (/, /home, /boot etc.)
+    // Kept separate from `disks` so nothing else breaks
+    Process {
+        id: mountedStorage
+
+        // Plain df with no fancy --output flag for maximum compatibility
+        // Columns: Filesystem  1K-blocks  Used  Available  Use%  Mounted-on
+        command: ["df", "-k"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = text.trim().split("\n");
+                const result = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line)
+                        continue;
+
+                    // df -k columns: Filesystem 1K-blocks Used Available Use% Mountpoint
+                    // Some lines wrap (long fs name), handle by joining with next line
+                    const parts = line.split(/\s+/);
+                    if (parts.length < 6)
+                        continue;
+
+                    // Mount point is always the last column
+                    const mount = parts[parts.length - 1];
+                    const total = parseInt(parts[parts.length - 5], 10) || 0;
+                    const used = parseInt(parts[parts.length - 4], 10) || 0;
+                    const free = parseInt(parts[parts.length - 3], 10) || 0;
+                    const perc = total > 0 ? used / total : 0;
+
+                    // Skip pseudo/kernel/snap filesystems
+                    const fs = parts[0];
+                    if (fs.startsWith("tmpfs") ||
+                        fs.startsWith("devtmpfs") ||
+                        fs.startsWith("udev") ||
+                        fs.startsWith("overlay") ||
+                        fs === "none" ||
+                        fs.startsWith("/dev/loop") ||
+                        fs.startsWith("squashfs"))
+                        continue;
+
+                    // Skip non-real mount paths
+                    if (mount.startsWith("/dev") ||
+                        mount.startsWith("/sys") ||
+                        mount.startsWith("/proc") ||
+                        mount.startsWith("/run") ||
+                        mount.startsWith("/snap"))
+                        continue;
+
+                    // Skip zero-size entries
+                    if (total === 0)
+                        continue;
+
+                    result.push({ mount, used, total, free, perc });
+                }
+
+                root.mountedDisks = result;
             }
         }
     }
@@ -227,15 +302,12 @@ Singleton {
                 if (!output)
                     return;
 
-                // Check if it's from nvidia-smi (clean GPU name)
                 if (output.toLowerCase().includes("nvidia") || output.toLowerCase().includes("geforce") || output.toLowerCase().includes("rtx") || output.toLowerCase().includes("gtx")) {
                     root.gpuName = root.cleanGpuName(output);
                 } else if (output.toLowerCase().includes("rx")) {
                     root.gpuName = root.cleanGpuName(output);
                 } else {
-                    // Parse lspci output: extract name from brackets or after colon
-                    // Handles cases like [AMD/ATI] Navi 21 [Radeon RX 6800/6800 XT / 6900 XT] (rev c0)
-                    const bracketMatch = output.match(/\[([^\]]+)\][^\[]*$/);
+                    const bracketMatch = output.match(/\[([^\]]+)\]/);
                     if (bracketMatch) {
                         root.gpuName = root.cleanGpuName(bracketMatch[1]);
                     } else {
@@ -292,7 +364,6 @@ Singleton {
             onStreamFinished: {
                 let cpuTemp = text.match(/(?:Package id [0-9]+|Tdie):\s+((\+|-)[0-9.]+)(°| )C/);
                 if (!cpuTemp)
-                    // If AMD Tdie pattern failed, try fallback on Tctl
                     cpuTemp = text.match(/Tctl:\s+((\+|-)[0-9.]+)(°| )C/);
 
                 if (cpuTemp)
@@ -313,7 +384,6 @@ Singleton {
                     else if (eligible) {
                         let match = line.match(/^(temp[0-9]+|GPU core|edge)+:\s+\+([0-9]+\.[0-9]+)(°| )C/);
                         if (!match)
-                            // Fall back to junction/mem if GPU doesn't have edge temp (for AMD GPUs)
                             match = line.match(/^(junction|mem)+:\s+\+([0-9]+\.[0-9]+)(°| )C/);
 
                         if (match) {

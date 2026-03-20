@@ -20,7 +20,7 @@ Item {
 
         animate: true
         text: Weather.icon
-        color: Colours.palette.m3secondary
+        color: Colours.palette.m3yellow
         font.pointSize: Appearance.font.size.extraLarge * 2
     }
 
@@ -38,7 +38,7 @@ Item {
 
             animate: true
             text: Weather.temp
-            color: Colours.palette.m3primary
+            color: Colours.palette.m3yellow
             font.pointSize: Appearance.font.size.extraLarge
             font.weight: 500
         }
