@@ -39,7 +39,8 @@ Singleton {
     // lsblk-based disks (existing, untouched)
     property var disks: []
 
-    // df-based mount points for StorageDiskCard
+    // Mount-point based storage for StorageDiskCard
+    // Uses device names (nvme0n1p5 etc), kept separate so nothing else breaks
     property var mountedDisks: []
 
     property real lastCpuIdle
@@ -140,6 +141,8 @@ Singleton {
         }
     }
 
+    // Get physical disks with aggregated usage from their partitions
+    // lsblk outputs: NAME SIZE TYPE FSUSED FSSIZE in bytes
     Process {
         id: storage
 
@@ -149,56 +152,42 @@ Singleton {
                 const diskMap = {};
                 const lines = text.trim().split("\n");
 
-                // Helper to recursively sum usage from children (partitions, crypt, lvm)
-                const aggregateUsage = dev => {
-                    let used = 0;
-                    let size = 0;
-                    let isRoot = dev.mountpoint === "/" || (dev.mountpoints && dev.mountpoints.includes("/"));
+                for (const line of lines) {
+                    if (line.trim() === "")
+                        continue;
 
+                    // Parse KEY="VALUE" format
                     const nameMatch = line.match(/NAME="([^"]+)"/);
                     const sizeMatch = line.match(/SIZE="([^"]+)"/);
                     const typeMatch = line.match(/TYPE="([^"]+)"/);
                     const fsusedMatch = line.match(/FSUSED="([^"]*)"/);
                     const fssizeMatch = line.match(/FSSIZE="([^"]*)"/);
 
-                    if (dev.children) {
-                        for (const child of dev.children) {
-                            const stats = aggregateUsage(child);
-                            used += stats.used;
-                            size += stats.size;
-                            if (stats.isRoot)
-                                isRoot = true;
-                        }
-                    }
-                    return {
-                        used,
-                        size,
-                        isRoot
-                    };
-                };
+                    if (!nameMatch || !typeMatch)
+                        continue;
 
-                for (const dev of data.blockdevices) {
-                    // Only process physical disks at the top level
-                    if (dev.type === "disk" && !dev.name.startsWith("zram")) {
-                        const stats = aggregateUsage(dev);
+                    const name = nameMatch[1];
+                    const type = typeMatch[1];
+                    const size = parseInt(sizeMatch?.[1] || "0", 10);
+                    const fsused = parseInt(fsusedMatch?.[1] || "0", 10);
+                    const fssize = parseInt(fssizeMatch?.[1] || "0", 10);
 
                     if (type === "disk") {
+                        // Skip zram (swap) devices
                         if (name.startsWith("zram"))
                             continue;
 
-                        if (!diskMap[name]) {
-                            diskMap[name] = {
-                                name: name,
-                                totalSize: size,
-                                used: 0,
-                                fsTotal: 0
-                            };
-                        }
+                        // Initialize disk entry
+                        if (!diskMap[name])
+                            diskMap[name] = { name, totalSize: size, used: 0, fsTotal: 0 };
                     } else if (type === "part") {
+                        // Find parent disk (remove trailing numbers/p+numbers)
                         let parentDisk = name.replace(/p?\d+$/, "");
+                        // For nvme devices like nvme0n1p1, parent is nvme0n1
                         if (name.match(/nvme\d+n\d+p\d+/))
                             parentDisk = name.replace(/p\d+$/, "");
 
+                        // Aggregate partition usage to parent disk
                         if (diskMap[parentDisk]) {
                             diskMap[parentDisk].used += fsused;
                             diskMap[parentDisk].fsTotal += fssize;
@@ -206,19 +195,21 @@ Singleton {
                     }
                 }
 
+                // Convert map to sorted array
                 const diskList = [];
                 for (const diskName of Object.keys(diskMap).sort()) {
                     const disk = diskMap[diskName];
+                    // Use filesystem total if available, otherwise use disk size
                     const total = disk.fsTotal > 0 ? disk.fsTotal : disk.totalSize;
                     const used = disk.used;
-                    const perc = total > 0 ? used / total : 0;
 
+                    // Convert bytes to KiB for consistency with formatKib
                     diskList.push({
                         mount: disk.name,
                         used: used / 1024,
                         total: total / 1024,
                         free: (total - used) / 1024,
-                        perc: perc
+                        perc: total > 0 ? used / total : 0
                     });
                 }
 
@@ -227,62 +218,53 @@ Singleton {
         }
     }
 
-    // Mount-point based storage for StorageDiskCard
-    // Uses df to get real mount points (/, /home, /boot etc.)
-    // Kept separate from `disks` so nothing else breaks
+    // Per-partition storage for StorageDiskCard
+    // Shows device names (nvme0n1p5, nvme0n1p4 etc) with real usage
+    // Only includes mounted partitions, kept separate so `disks` is untouched
     Process {
         id: mountedStorage
 
-        // Plain df with no fancy --output flag for maximum compatibility
-        // Columns: Filesystem  1K-blocks  Used  Available  Use%  Mounted-on
-        command: ["df", "-k"]
+        command: ["lsblk", "-b", "-o", "NAME,SIZE,TYPE,FSUSED,FSSIZE,MOUNTPOINT", "-P"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const lines = text.trim().split("\n");
                 const result = [];
 
-                for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (!line)
+                for (const line of lines) {
+                    if (!line.trim())
                         continue;
 
-                    // df -k columns: Filesystem 1K-blocks Used Available Use% Mountpoint
-                    // Some lines wrap (long fs name), handle by joining with next line
-                    const parts = line.split(/\s+/);
-                    if (parts.length < 6)
+                    const nameMatch = line.match(/NAME="([^"]+)"/);
+                    const typeMatch = line.match(/TYPE="([^"]+)"/);
+                    const fsusedMatch = line.match(/FSUSED="([^"]*)"/);
+                    const fssizeMatch = line.match(/FSSIZE="([^"]*)"/);
+                    const mountMatch = line.match(/MOUNTPOINT="([^"]*)"/);
+
+                    if (!nameMatch || !typeMatch)
+                        continue;
+                    // Only partitions (not whole disks or zram)
+                    if (typeMatch[1] !== "part")
                         continue;
 
-                    // Mount point is always the last column
-                    const mount = parts[parts.length - 1];
-                    const total = parseInt(parts[parts.length - 5], 10) || 0;
-                    const used = parseInt(parts[parts.length - 4], 10) || 0;
-                    const free = parseInt(parts[parts.length - 3], 10) || 0;
-                    const perc = total > 0 ? used / total : 0;
-
-                    // Skip pseudo/kernel/snap filesystems
-                    const fs = parts[0];
-                    if (fs.startsWith("tmpfs") ||
-                        fs.startsWith("devtmpfs") ||
-                        fs.startsWith("udev") ||
-                        fs.startsWith("overlay") ||
-                        fs === "none" ||
-                        fs.startsWith("/dev/loop") ||
-                        fs.startsWith("squashfs"))
+                    const mount = mountMatch?.[1] || "";
+                    // Skip unmounted and swap partitions
+                    if (!mount || mount === "[SWAP]")
                         continue;
 
-                    // Skip non-real mount paths
-                    if (mount.startsWith("/dev") ||
-                        mount.startsWith("/sys") ||
-                        mount.startsWith("/proc") ||
-                        mount.startsWith("/run") ||
-                        mount.startsWith("/snap"))
-                        continue;
-
-                    // Skip zero-size entries
+                    const used = parseInt(fsusedMatch?.[1] || "0", 10) / 1024;
+                    const total = parseInt(fssizeMatch?.[1] || "0", 10) / 1024;
+                    // Skip partitions with no filesystem size (e.g. EFI, empty)
                     if (total === 0)
                         continue;
 
-                    result.push({ mount, used, total, free, perc });
+                    // Use device name as label e.g. nvme0n1p5
+                    result.push({
+                        mount: nameMatch[1],
+                        used,
+                        total,
+                        free: total - used,
+                        perc: used / total
+                    });
                 }
 
                 root.mountedDisks = result;
@@ -302,11 +284,13 @@ Singleton {
                 if (!output)
                     return;
 
+                // Check if it's from nvidia-smi (clean GPU name)
                 if (output.toLowerCase().includes("nvidia") || output.toLowerCase().includes("geforce") || output.toLowerCase().includes("rtx") || output.toLowerCase().includes("gtx")) {
                     root.gpuName = root.cleanGpuName(output);
                 } else if (output.toLowerCase().includes("rx")) {
                     root.gpuName = root.cleanGpuName(output);
                 } else {
+                    // Parse lspci output: extract name from brackets or after colon
                     const bracketMatch = output.match(/\[([^\]]+)\]/);
                     if (bracketMatch) {
                         root.gpuName = root.cleanGpuName(bracketMatch[1]);
@@ -364,6 +348,7 @@ Singleton {
             onStreamFinished: {
                 let cpuTemp = text.match(/(?:Package id [0-9]+|Tdie):\s+((\+|-)[0-9.]+)(°| )C/);
                 if (!cpuTemp)
+                    // If AMD Tdie pattern failed, try fallback on Tctl
                     cpuTemp = text.match(/Tctl:\s+((\+|-)[0-9.]+)(°| )C/);
 
                 if (cpuTemp)
@@ -384,6 +369,7 @@ Singleton {
                     else if (eligible) {
                         let match = line.match(/^(temp[0-9]+|GPU core|edge)+:\s+\+([0-9]+\.[0-9]+)(°| )C/);
                         if (!match)
+                            // Fall back to junction/mem if GPU doesn't have edge temp (for AMD GPUs)
                             match = line.match(/^(junction|mem)+:\s+\+([0-9]+\.[0-9]+)(°| )C/);
 
                         if (match) {
