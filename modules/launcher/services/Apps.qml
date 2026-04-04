@@ -13,7 +13,7 @@ Searcher {
 
         if (entry.runInTerminal)
             Quickshell.execDetached({
-                command: ["app2unit", "--", ...Config.general.apps.terminal, `${Quickshell.shellDir}/assets/wrap_term_launch.sh`, ...entry.command],
+                command: ["ghostty", "-e", entry.command],
                 workingDirectory: entry.workingDirectory
             });
         else

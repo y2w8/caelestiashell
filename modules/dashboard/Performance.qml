@@ -86,7 +86,7 @@ Item {
                     Layout.preferredHeight: 150
                     visible: Config.dashboard.performance.showCpu
                     icon: "memory"
-                    title: SystemUsage.cpuName ? `CPU - ${SystemUsage.cpuName}` : qsTr("CPU")
+                    title: SystemUsage.cpuName ? `${SystemUsage.cpuName}` : qsTr("CPU")
                     mainValue: `${Math.round(SystemUsage.cpuPerc * 100)}%`
                     mainLabel: qsTr("Usage")
                     secondaryValue: root.displayTemp(SystemUsage.cpuTemp)
@@ -102,7 +102,7 @@ Item {
                     Layout.preferredHeight: 150
                     visible: Config.dashboard.performance.showGpu && SystemUsage.gpuType !== "NONE"
                     icon: "desktop_windows"
-                    title: SystemUsage.gpuName ? `GPU - ${SystemUsage.gpuName}` : qsTr("GPU")
+                    title: SystemUsage.gpuName ? `${SystemUsage.gpuName}` : qsTr("GPU")
                     mainValue: `${Math.round(SystemUsage.gpuPerc * 100)}%`
                     mainLabel: qsTr("Usage")
                     secondaryValue: root.displayTemp(SystemUsage.gpuTemp)

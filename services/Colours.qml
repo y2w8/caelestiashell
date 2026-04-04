@@ -184,6 +184,7 @@ Singleton {
         readonly property color m3onTertiaryFixedVariant: root.layer(root.palette.m3onTertiaryFixedVariant)
 
         readonly property color m3pink: root.layer(root.palette.m3pink)
+        readonly property color m3green: root.layer(root.palette.m3green)
         readonly property color m3base: root.layer(root.palette.m3base)
         readonly property color m3text: root.layer(root.palette.m3text)
         readonly property color m3flamingo: root.layer(root.palette.m3flamingo)
@@ -254,6 +255,7 @@ Singleton {
         property color m3onTertiaryFixedVariant: "#623f21"
 
         property color m3pink: "#ffffff"
+        property color m3green: "#ffffff"
         property color m3base: "#ffffff"
         property color m3text: "#ffffff"
         property color m3flamingo: "#ffffff"
