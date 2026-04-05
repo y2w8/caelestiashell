@@ -109,7 +109,7 @@ Item {
                     secondaryLabel: qsTr("Temp")
                     usage: SystemUsage.gpuPerc
                     temperature: SystemUsage.gpuTemp
-                    accentColor: Colours.palette.m3secondary
+                    accentColor: Colours.palette.m3green
                 }
             }
 
@@ -262,13 +262,13 @@ Item {
         onUsageChanged: animatedUsage = usage
         onTempProgressChanged: animatedTemp = tempProgress
 
-        StyledRect {
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            implicitWidth: parent.width * heroCard.animatedUsage
-            color: Qt.alpha(heroCard.accentColor, 0.15)
-        }
+        // StyledRect {
+        //     anchors.left: parent.left
+        //     anchors.top: parent.top
+        //     anchors.bottom: parent.bottom
+        //     implicitWidth: parent.width * heroCard.animatedUsage
+        //     color: Qt.alpha(heroCard.accentColor, 0.15)
+        // }
 
         CardHeader {
             anchors.left: parent.left
@@ -296,6 +296,7 @@ Item {
 
                 StyledText {
                     text: heroCard.secondaryValue
+                    color: heroCard.temperature >= 80 ? Colours.palette.m3error : heroCard.temperature >= 60 ? Colours.palette.m3yellow : Colours.palette.m3onBackground
                     font.pointSize: Appearance.font.size.normal
                     font.weight: Font.Medium
                 }
@@ -311,7 +312,7 @@ Item {
             ProgressBar {
                 implicitWidth: parent.width * 0.5
                 implicitHeight: 6
-                value: heroCard.tempProgress
+                value: heroCard.animatedUsage
                 fgColor: heroCard.accentColor
                 bgColor: Qt.alpha(heroCard.accentColor, 0.2)
             }
@@ -537,9 +538,9 @@ Item {
                                 font.pointSize: Appearance.font.size.small
                                 font.weight: Font.Medium
                                 color: [
-                                    Colours.palette.m3blue,
+                                    Colours.palette.m3error,
                                     Colours.palette.m3tertiary,
-                                    Colours.palette.m3pink
+                                    Colours.palette.m3blue
                                 ][index % 3]
                                 elide: Text.ElideRight
                             }
@@ -549,9 +550,9 @@ Item {
                                 font.pointSize: Appearance.font.size.small
                                 font.weight: Font.Medium
                                 color: [
-                                    Colours.palette.m3blue,
+                                    Colours.palette.m3error,
                                     Colours.palette.m3tertiary,
-                                    Colours.palette.m3pink
+                                    Colours.palette.m3blue
                                 ][index % 3]
                             }
                         }
@@ -561,9 +562,9 @@ Item {
                           height: 8
                           value: modelData.perc
                           fgColor: [
-                              Colours.palette.m3blue,
+                              Colours.palette.m3error,
                               Colours.palette.m3tertiary,
-                              Colours.palette.m3pink
+                              Colours.palette.m3blue
                           ][index % 3]
                       }
                     }
@@ -582,9 +583,9 @@ Item {
                             font.pointSize: Appearance.font.size.smaller
                             font.weight: Font.Medium
                             color: [
-                                Colours.palette.m3blue,
+                                Colours.palette.m3error,
                                 Colours.palette.m3tertiary,
-                                Colours.palette.m3pink
+                                Colours.palette.m3blue
                             ][index % 3]
                         }
 
@@ -653,10 +654,10 @@ Item {
 
                     anchors.fill: parent
                     line1: NetworkUsage.uploadBuffer // qmllint disable missing-type
-                    line1Color: Colours.palette.m3secondary
+                    line1Color: Colours.palette.m3teal
                     line1FillAlpha: 0.15
                     line2: NetworkUsage.downloadBuffer // qmllint disable missing-type
-                    line2Color: Colours.palette.m3tertiary
+                    line2Color: Colours.palette.m3green
                     line2FillAlpha: 0.2
                     maxValue: smoothMax
                     historyLength: NetworkUsage.historyLength
@@ -703,7 +704,7 @@ Item {
 
                 MaterialIcon {
                     text: "download"
-                    color: Colours.palette.m3tertiary
+                    color: Colours.palette.m3green
                     font.pointSize: Appearance.font.size.normal
                 }
 
@@ -724,7 +725,7 @@ Item {
                     }
                     font.pointSize: Appearance.font.size.normal
                     font.weight: Font.Medium
-                    color: Colours.palette.m3tertiary
+                    color: Colours.palette.m3green
                 }
             }
 
@@ -734,7 +735,7 @@ Item {
 
                 MaterialIcon {
                     text: "upload"
-                    color: Colours.palette.m3secondary
+                    color: Colours.palette.m3teal
                     font.pointSize: Appearance.font.size.normal
                 }
 
@@ -755,7 +756,7 @@ Item {
                     }
                     font.pointSize: Appearance.font.size.normal
                     font.weight: Font.Medium
-                    color: Colours.palette.m3secondary
+                    color: Colours.palette.m3teal
                 }
             }
 
